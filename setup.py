@@ -7,7 +7,7 @@ Created on 15 Mar 2017
 from setuptools import setup
 from setuptools.dist import check_entry_points
 
-setup(name="combinedDataPull",
+setup(name="weatherDataPull",
       version="0.1",
       description="Weather & Bike Data API interface",
       url="",
