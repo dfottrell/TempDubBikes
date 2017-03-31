@@ -66,11 +66,11 @@ class dataPull(object):
         counter = 0
         # Note - requests should not be more than once every 10 minutes, direction from openweathermap.org
         # This timer will be used to prevent excessive calls to the openweathermap API
-        while (counter < 1):      # 168 hrs / week, for 2 weeks = 336 calls, 15 min intervals gives 1344 calls  
+        while (counter < 1344):      # 168 hrs / week, for 2 weeks = 336 calls, 15 min intervals gives 1344 calls  
             gW = dataPull()
             gW.getWeather()            # Calls the pullWeather class to execute a current weather pull
             gW.getBikes()               # Calls Selene's code for pulling bike data 
-            time.sleep(3)           # Timing function waits 15 mins after triggering the data pull
+            time.sleep(900)           # Timing function waits 15 mins after triggering the data pull
             counter += 1    
             
 if __name__ == '__main__':
