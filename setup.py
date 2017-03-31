@@ -16,7 +16,7 @@ setup(name="weatherDataPull",
       licence="GPL3",
       packages=["weatherDataPull"],
       entry_points={
-          'console_scripts':['workspaceComp30670_dataPull=combinedDataPull.main:main']
+          'console_scripts':['workspaceComp30670_dataPull=weatherDataPull.main:main']
           }
     
     )
