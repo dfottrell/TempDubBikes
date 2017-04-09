@@ -80,8 +80,7 @@ class dataScrape(object):
             desc = i['description']
             icon = i['icon']
     
-        print("The current temperature is: ", temp)
-    
+        
         try:
             with connection.cursor() as cursor:
                 # create new record
