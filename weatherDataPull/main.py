@@ -1,26 +1,32 @@
 '''
-Created on 15 Mar 2017
+Created on 4 Apr 2017
 
-@author: David Fottrell
+@author: David Fottrell 09138773
+
+The purpose of this code is to directly pull JSON data from Open Weather & Dublin Bikes websites and parse it 
+directly into a SQL database, instead of sending to a file as is currently the case.
+
 '''
 import time
 import datetime
-import requests
+import json
+import urllib.request
+import pymysql.cursors
+
 
 def main():
-    dP = dataPull()
+    dP = dataScrape()
     dP.timer()
     return
 
-class dataPull(object):
+
+class dataScrape(object):
     '''
-    classdocs
+    This class will provide similar functionality to main.dataPull(), however we will modify it to redirect the API
+    result to the data base rather than to a file.
     
-    This class was created to facilitate pulling in API data at regular intervals.  At this point, it is configured
-    to pull in current weather data for Dublin from www.openweathermap.org, at 5 minute intervals.
-    
-    The same data structure can be used to pull in data from other sources on the same time interval.
-    
+    To simplify matters, we will copy code directly from main.dataPull() where appropriate.  What I'm planning here 
+    is sufficiently different to warrant an entirely new class.
     '''
 
 
@@ -31,47 +37,85 @@ class dataPull(object):
     
     
     def getWeather(self):
-        # This is a variable to contain the www.openweathermap.org call for current weather in Dublin with an API key
-        srcdata = requests.get('http://api.openweathermap.org/data/2.5/weather?id=7778677&APPID=0b1d40f0f5b1bc4af97416f01400dd72&units=metric')
+        '''
+        Am taking a different approach from previous scraping API because we are handling JSON data directly, I want
+        to keep things simple.  The old method may prove just as effective, but I received a victim impact statement 
+        after my previous project importing and processing JSON data!!!
         
-        # For later, use TRY: and EXCEPT: functions as taught in Web Dev class
+        Inspiration for this approach came from 
+        http://stackoverflow.com/questions/40247392/inserting-json-object-into-mysql-using-python 
+        '''
         
-        if (srcdata.status_code != 200):
-            print("Error - did not receive status code 200 from Open Weather!")
+            # Database connection phase - Obtained from mypysql library manual https://media.readthedocs.org/pdf/pymysql/latest/pymysql.pdf
+        connection = pymysql.connect(host = 'bikeandweather.cnkbtyr1hegq.us-east-1.rds.amazonaws.com',
+                                     user = 'admin',
+                                     password = 'Conv2017',
+                                     db = 'BikeAndWeather',
+                                     charset='utf8mb4',
+                                     cursorclass=pymysql.cursors.DictCursor)
         
-        else:
-            # Create a unique filename to identify the JSON data based on date and time
-            # This should pull a time stamp in the format of YYYMMDD-HHMMSS
-            filestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-            # Now concatenate the time stamp with .JSON extention to create a valid filename
-            filestamp = "w" + filestamp + ".JSON"
+        
+        # Openweather API call phase
+        url = 'http://api.openweathermap.org/data/2.5/weather?id=7778677&APPID=0b1d40f0f5b1bc4af97416f01400dd72&units=metric'
+        wthr = urllib.request.urlopen(url).read()
+        data = json.loads(wthr.decode('utf-8'))            
+    
+    
+        # These variables are initiliased outside the for loop to make them available to the cursor.execute function later
+        date = data['dt']
+        main = ""
+        desc = ""
+        icon = ""
+        temp = data['main']['temp']
+        
+        '''
+            Receiving warnings here; Warning: (1265, "Data truncated for column 'temp' at row 1").
+            In the database, it is truncating the value to an integer value only.  Efforts to fix this
+            have lead nowhere.  So I have decided to live with this for now!
+        
+        '''
+    
+        for i in data['weather']:
+            main = i['main']
+            desc = i['description']
+            icon = i['icon']
+    
+        print("The current temperature is: ", temp)
+    
+        try:
+            with connection.cursor() as cursor:
+                # create new record
+                sql = "INSERT INTO BikeAndWeather.Weatherdata (date, main, description, icon, temp) VALUES (%s, %s, %s, %s, %s)"
+                cursor.execute(sql, (date, main, desc, icon, temp))
+                
+            connection.commit()
             
-            # Now write this file to disk
-            filehandle = open(filestamp, 'w')
-            filehandle.write(srcdata.text)       
-            filehandle.close()
-        return
-    
-    
-    def getBikes(self):
-        r = requests.get('https://api.jcdecaux.com/vls/v1/stations?contract=Dublin&apiKey=40d8ce05c637ce862bae2802f93241044b3a73d8')
-        filestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filestamp = "b" + filestamp + ".JSON"    
-        filehandle = open(filestamp, 'w')
-        filehandle.write(r.text)       
-        filehandle.close()
-        return
-    
+        finally:
+            connection.close() 
+        
+        ''' Database write phase 
+            Note that the date is the database key
+        '''
+        #for data in wthr_obj["object"]: 
+        #    cursor.execute("INSERT webscraper.weather(date, main, description, icon, temp) VALUES (data['dt'],data.weather['main'], data.weather['description'], data.weather['icon'], data.main['temp']);")
+
+        
     def timer(self):
         counter = 0
-        # Note - requests should not be more than once every 10 minutes, direction from openweathermap.org
-        # This timer will be used to prevent excessive calls to the openweathermap API
-        while (counter < 1344):      # 168 hrs / week, for 2 weeks = 336 calls, 15 min intervals gives 1344 calls  
-            gW = dataPull()
-            gW.getWeather()            # Calls the pullWeather class to execute a current weather pull
-            gW.getBikes()               # Calls Selene's code for pulling bike data 
-            time.sleep(900)           # Timing function waits 15 mins after triggering the data pull
+        '''
+        Note - requests should not be more than once every 10 minutes, direction from openweathermap.org
+        This timer will be used to prevent excessive calls to the openweathermap API.
+        
+        168 hrs / week, for 2 weeks = 336 calls, 15 min intervals gives 1344 calls.  Timing function 
+        waits 15 mins after triggering the data pull
+        '''
+        while (counter < 12):        
+            gW = dataScrape()
+            gW.getWeather()            
+            #gW.getBikes()                
+            time.sleep(3600)           
             counter += 1    
-            
+
+
 if __name__ == '__main__':
     main()
