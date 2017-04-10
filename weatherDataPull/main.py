@@ -35,6 +35,46 @@ class dataScrape(object):
         Constructor
         '''
     
+    def getBikes(self):
+        '''
+        Methodology used here is a replica of that in getWeather(), which was developed first
+        '''
+        # Database connection phase - Obtained from mypysql library manual https://media.readthedocs.org/pdf/pymysql/latest/pymysql.pdf
+        connection = pymysql.connect(host = 'bikeandweather.cnkbtyr1hegq.us-east-1.rds.amazonaws.com',
+                                     user = 'admin',
+                                     password = 'Conv2017',
+                                     db = 'BikeAndWeather',
+                                     charset='utf8mb4',
+                                     cursorclass=pymysql.cursors.DictCursor)
+        
+        # Openweather API call phase
+        url = 'https://api.jcdecaux.com/vls/v1/stations?contract=Dublin&apiKey=40d8ce05c637ce862bae2802f93241044b3a73d8'
+        wthr = urllib.request.urlopen(url).read()
+        data = json.loads(wthr.decode('utf-8'))            
+    
+        for each in range (0, 100):
+            i = data[each]
+            update = i['last_update']
+            number = i['number']
+            name = i['name']
+            AvailStands = i['available_bike_stands']
+            bikes = i['available_bikes']
+            lat = i['position']['lat']
+            long = i['position']['lng']
+            each += 1
+    
+        try:
+            with connection.cursor() as cursor:
+                # create new record
+                sql = "INSERT INTO BikeAndWeather.DaveBikeDataPull (Last_Update, StandNo, Name, AvailStands, AvailBikes, Latitude, Longitude) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (update, number, name, AvailStands, bikes, lat, long))
+                
+            connection.commit()
+            
+        finally:
+            connection.close() 
+     
+    
     
     def getWeather(self):
         '''
@@ -46,7 +86,7 @@ class dataScrape(object):
         http://stackoverflow.com/questions/40247392/inserting-json-object-into-mysql-using-python 
         '''
         
-            # Database connection phase - Obtained from mypysql library manual https://media.readthedocs.org/pdf/pymysql/latest/pymysql.pdf
+        #Database connection phase - Obtained from mypysql library manual https://media.readthedocs.org/pdf/pymysql/latest/pymysql.pdf
         connection = pymysql.connect(host = 'bikeandweather.cnkbtyr1hegq.us-east-1.rds.amazonaws.com',
                                      user = 'admin',
                                      password = 'Conv2017',
@@ -108,11 +148,11 @@ class dataScrape(object):
         168 hrs / week, for 2 weeks = 336 calls, 15 min intervals gives 1344 calls.  Timing function 
         waits 15 mins after triggering the data pull
         '''
-        while (counter < 12):        
+        while (counter < 1344):        
             gW = dataScrape()
             gW.getWeather()            
             #gW.getBikes()                
-            time.sleep(3600)           
+            time.sleep(900)           
             counter += 1    
 
 
