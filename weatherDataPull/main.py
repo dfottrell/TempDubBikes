@@ -12,6 +12,7 @@ import datetime
 import json
 import urllib.request
 import pymysql.cursors
+from warnings import filterwarnings, resetwarnings
 
 
 def main():
@@ -47,6 +48,7 @@ class dataScrape(object):
                                      charset='utf8mb4',
                                      cursorclass=pymysql.cursors.DictCursor)
         
+                
         # Openweather API call phase
         url = 'https://api.jcdecaux.com/vls/v1/stations?contract=Dublin&apiKey=40d8ce05c637ce862bae2802f93241044b3a73d8'
         wthr = urllib.request.urlopen(url).read()
@@ -86,7 +88,7 @@ class dataScrape(object):
         http://stackoverflow.com/questions/40247392/inserting-json-object-into-mysql-using-python 
         '''
         
-        #Database connection phase - Obtained from mypysql library manual https://media.readthedocs.org/pdf/pymysql/latest/pymysql.pdf
+    #Database connection phase - Obtained from mypysql library manual https://media.readthedocs.org/pdf/pymysql/latest/pymysql.pdf
         connection = pymysql.connect(host = 'bikeandweather.cnkbtyr1hegq.us-east-1.rds.amazonaws.com',
                                      user = 'admin',
                                      password = 'Conv2017',
@@ -123,6 +125,8 @@ class dataScrape(object):
         
         try:
             with connection.cursor() as cursor:
+                # Code to suppress Warning: (1265, "Data truncated for column 'temp' at row 1")
+                filterwarnings('ignore', category = connection.Warning)
                 # create new record
                 sql = "INSERT INTO BikeAndWeather.Weatherdata (date, main, description, icon, temp) VALUES (%s, %s, %s, %s, %s)"
                 cursor.execute(sql, (date, main, desc, icon, temp))
@@ -131,6 +135,8 @@ class dataScrape(object):
             
         finally:
             connection.close() 
+            # Reinstating database warnings
+            resetwarnings()
         
         ''' Database write phase 
             Note that the date is the database key
